@@ -303,22 +303,34 @@ bool WholeBodyDynamicsDevice::openEstimator(os::Searchable& config)
     return true;
 }
 
-bool WholeBodyDynamicsDevice::openDefaultContactFrames(os::Searchable& config)
+bool WholeBodyDynamicsDevice::openContactFrames(os::Searchable& config)
 {
     yarp::os::Property prop;
     prop.fromString(config.toString().c_str());
 
-    yarp::os::Bottle *propContactFrames=prop.find("defaultContactFrames").asList();
-    if(propContactFrames==0)
+    yarp::os::Bottle *propDefaultContactFrames=prop.find("defaultContactFrames").asList();
+    yarp::os::Bottle *propOverrideContactFrames=prop.find("defaultContactFrames").asList();
+    if(propDefaultContactFrames==0)
     {
        yError() <<"wholeBodyDynamics : Error parsing parameters: \"defaultContactFrames\" should be followed by a list\n";
        return false;
     }
-
-    defaultContactFrames.resize(propContactFrames->size());
-    for(int ax=0; ax < propContactFrames->size(); ax++)
+    if(propOverrideContactFrames==0)
     {
-        defaultContactFrames[ax] = propContactFrames->get(ax).asString().c_str();
+       yError() <<"wholeBodyDynamics : Error parsing parameters: \"OverrideContactFrames\" should be followed by a list\n";
+       return false;
+    }
+
+    defaultContactFrames.resize(propDefaultContactFrames->size());    
+    for(int ax=0; ax < propDefaultContactFrames->size(); ax++)
+    {
+        defaultContactFrames[ax] = propDefaultContactFrames->get(ax).asString().c_str();
+    }
+
+    overrideContactFrames.resize(propOverrideContactFrames->size());
+    for(int ax=0; ax < propOverrideContactFrames->size(); ax++)
+    {
+        overrideContactFrames[ax] = propOverrideContactFrames->get(ax).asString().c_str();
     }
 
     // We build the defaultContactFramesIdx vector
@@ -337,7 +349,28 @@ bool WholeBodyDynamicsDevice::openDefaultContactFrames(os::Searchable& config)
             defaultContactFramesIdx.push_back(idx);
         }
     }
+    
+    // We build the overrideContactFramesIdx vector
+    std::vector<iDynTree::FrameIndex> overrideContactFramesIdx;
+    overrideContactFramesIdx.clear();
+    for(size_t i=0; i < overrideContactFrames.size(); i++)
+    {
+        iDynTree::FrameIndex idx = estimator.model().getFrameIndex(overrideContactFrames[i]);
 
+        if( idx == iDynTree::FRAME_INVALID_INDEX )
+        {
+            yWarning() << "Frame " << overrideContactFrames[i] << " not found in the model, discarding it";
+        }
+        else
+        {
+            overrideContactFramesIdx.push_back(idx);
+        }
+    }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Here, for each submodel -> if an override frame exists we consider it and neglect the default frame
+//..
+// Write the other cases...
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // For each submodel, we find the first suitable contact frame
     // This is a n^2 algorithm, but given that is just used in
     // configuration it should be ok

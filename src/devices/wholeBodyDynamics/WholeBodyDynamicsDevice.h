@@ -707,7 +707,9 @@ private:
       * specified, and a full wrench on the first suitable frame (i.e. frame belonging to the submodel)
       *  is added.
       */
+     //std::string selectedContactFrames{"default"};
      std::vector<std::string> defaultContactFrames;
+     std::vector<std::string> overrideContactFrames;
      std::vector<iDynTree::FrameIndex> subModelIndex2DefaultContact;
 
      /**
