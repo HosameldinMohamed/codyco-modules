@@ -381,7 +381,7 @@ private:
     bool openRemapperControlBoard(os::Searchable& config);
     bool openRemapperVirtualSensors(os::Searchable& config);
     bool openEstimator(os::Searchable& config);
-    bool openDefaultContactFrames(os::Searchable& config);
+    bool openContactFrames(os::Searchable& config);
     bool openSkinContactListPorts(os::Searchable& config);
     bool openExternalWrenchesPorts(os::Searchable& config);    
     bool openFilteredFTPorts(os::Searchable& config);
@@ -711,6 +711,8 @@ private:
      std::vector<std::string> defaultContactFrames;
      std::vector<std::string> overrideContactFrames;
      std::vector<iDynTree::FrameIndex> subModelIndex2DefaultContact;
+     std::vector<iDynTree::FrameIndex> subModelIndex2OverrideContact;
+     bool overrideContactFramesSelected{false};
 
      /**
       * Port used to read the location of external contacts

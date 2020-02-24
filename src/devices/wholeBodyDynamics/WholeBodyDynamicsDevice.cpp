@@ -309,102 +309,167 @@ bool WholeBodyDynamicsDevice::openContactFrames(os::Searchable& config)
     prop.fromString(config.toString().c_str());
 
     yarp::os::Bottle *propDefaultContactFrames=prop.find("defaultContactFrames").asList();
-    yarp::os::Bottle *propOverrideContactFrames=prop.find("defaultContactFrames").asList();
-    if(propDefaultContactFrames==0)
-    {
-       yError() <<"wholeBodyDynamics : Error parsing parameters: \"defaultContactFrames\" should be followed by a list\n";
-       return false;
-    }
+    yarp::os::Bottle *propOverrideContactFrames=prop.find("overrideContactFrames").asList();
+    yarp::os::Bottle *propContactWrenchType=prop.find("contactWrenchType").asList();
+    yarp::os::Bottle *propContactWrenchDirection=prop.find("contactWrenchDirection").asList();
+    yarp::os::Bottle *propContactWrenchPosition=prop.find("contactWrenchPosition").asList();
+
     if(propOverrideContactFrames==0)
     {
-       yError() <<"wholeBodyDynamics : Error parsing parameters: \"OverrideContactFrames\" should be followed by a list\n";
-       return false;
-    }
-
-    defaultContactFrames.resize(propDefaultContactFrames->size());    
-    for(int ax=0; ax < propDefaultContactFrames->size(); ax++)
-    {
-        defaultContactFrames[ax] = propDefaultContactFrames->get(ax).asString().c_str();
-    }
-
-    overrideContactFrames.resize(propOverrideContactFrames->size());
-    for(int ax=0; ax < propOverrideContactFrames->size(); ax++)
-    {
-        overrideContactFrames[ax] = propOverrideContactFrames->get(ax).asString().c_str();
-    }
-
-    // We build the defaultContactFramesIdx vector
-    std::vector<iDynTree::FrameIndex> defaultContactFramesIdx;
-    defaultContactFramesIdx.clear();
-    for(size_t i=0; i < defaultContactFrames.size(); i++)
-    {
-        iDynTree::FrameIndex idx = estimator.model().getFrameIndex(defaultContactFrames[i]);
-
-        if( idx == iDynTree::FRAME_INVALID_INDEX )
+        //overrideContactFrames don't exist -> considering defaultContactFrames
+        if(propDefaultContactFrames==0)
         {
-            yWarning() << "Frame " << defaultContactFrames[i] << " not found in the model, discarding it";
-        }
-        else
-        {
-            defaultContactFramesIdx.push_back(idx);
-        }
-    }
-    
-    // We build the overrideContactFramesIdx vector
-    std::vector<iDynTree::FrameIndex> overrideContactFramesIdx;
-    overrideContactFramesIdx.clear();
-    for(size_t i=0; i < overrideContactFrames.size(); i++)
-    {
-        iDynTree::FrameIndex idx = estimator.model().getFrameIndex(overrideContactFrames[i]);
-
-        if( idx == iDynTree::FRAME_INVALID_INDEX )
-        {
-            yWarning() << "Frame " << overrideContactFrames[i] << " not found in the model, discarding it";
-        }
-        else
-        {
-            overrideContactFramesIdx.push_back(idx);
-        }
-    }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Here, for each submodel -> if an override frame exists we consider it and neglect the default frame
-//..
-// Write the other cases...
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // For each submodel, we find the first suitable contact frame
-    // This is a n^2 algorithm, but given that is just used in
-    // configuration it should be ok
-    size_t nrOfSubModels = estimator.submodels().getNrOfSubModels();
-
-    // We indicate with FRAME_INVALID_INDEX the fact that we still don't have a default contact for the given submodel
-    subModelIndex2DefaultContact.resize(nrOfSubModels,iDynTree::FRAME_INVALID_INDEX);
-
-    for(size_t i=0; i < defaultContactFramesIdx.size(); i++)
-    {
-        size_t subModelIdx = estimator.submodels().getSubModelOfFrame(estimator.model(),defaultContactFramesIdx[i]);
-
-        // If the subModel of the frame still does not have a default contact, we add it
-        if( subModelIndex2DefaultContact[subModelIdx] == iDynTree::FRAME_INVALID_INDEX )
-        {
-            subModelIndex2DefaultContact[subModelIdx] = defaultContactFramesIdx[i];
-        }
-    }
-
-
-    // Let's check that every submodel has a default contact position
-    for(size_t subModelIdx = 0; subModelIdx < nrOfSubModels; subModelIdx++)
-    {
-        if( subModelIndex2DefaultContact[subModelIdx] == iDynTree::FRAME_INVALID_INDEX )
-        {
-            yError() << "wholeBodyDynamics : openDefaultContactFrames : missing default contact for submodel composed by the links: ";
-            const iDynTree::Traversal & subModelTraversal = estimator.submodels().getTraversal(subModelIdx);
-            for(iDynTree::TraversalIndex i = 0; i < (iDynTree::TraversalIndex) subModelTraversal.getNrOfVisitedLinks(); i++)
-            {
-                iDynTree::LinkIndex linkIdx = subModelTraversal.getLink(i)->getIndex();
-                yError() << "wholeBodyDynamics : openDefaultContactFrames :" << estimator.model().getLinkName(linkIdx);
-            }
-
+            yError() <<"wholeBodyDynamics : Error parsing parameters: \"defaultContactFrames\" should be followed by a list\n";
             return false;
+        }
+    }
+    else
+    {
+        //overrideContactFrames exist -> they are parsed instead of defaultContactFrames
+        yInfo() << "wholeBodyDynamics: Parsing the parameters from overrideContactFrames.\n";
+        overrideContactFramesSelected = true;
+    }
+
+    //if no overrideContactFrames parameter found in the configuration file
+    if(!overrideContactFramesSelected)
+    {
+        defaultContactFrames.resize(propDefaultContactFrames->size());    
+        for(int ax=0; ax < propDefaultContactFrames->size(); ax++)
+        {
+            defaultContactFrames[ax] = propDefaultContactFrames->get(ax).asString().c_str();
+        }
+        
+        // We build the defaultContactFramesIdx vector
+        std::vector<iDynTree::FrameIndex> defaultContactFramesIdx;
+        defaultContactFramesIdx.clear();
+        for(size_t i=0; i < defaultContactFrames.size(); i++)
+        {
+            iDynTree::FrameIndex idx = estimator.model().getFrameIndex(defaultContactFrames[i]);
+
+            if( idx == iDynTree::FRAME_INVALID_INDEX )
+            {
+                yWarning() << "Frame " << defaultContactFrames[i] << " not found in the model, discarding it";
+            }
+            else
+            {
+                defaultContactFramesIdx.push_back(idx);
+            }
+        }
+        
+        // For each submodel, we find the first suitable contact frame
+        // This is a n^2 algorithm, but given that is just used in
+        // configuration it should be ok
+        size_t nrOfSubModels = estimator.submodels().getNrOfSubModels();
+
+        // We indicate with FRAME_INVALID_INDEX the fact that we still don't have a default contact for the given submodel
+        subModelIndex2DefaultContact.resize(nrOfSubModels,iDynTree::FRAME_INVALID_INDEX);
+
+        for(size_t i=0; i < defaultContactFramesIdx.size(); i++)
+        {
+            size_t subModelIdx = estimator.submodels().getSubModelOfFrame(estimator.model(),defaultContactFramesIdx[i]);
+
+            // If the subModel of the frame still does not have a default contact, we add it
+            if( subModelIndex2DefaultContact[subModelIdx] == iDynTree::FRAME_INVALID_INDEX )
+            {
+                subModelIndex2DefaultContact[subModelIdx] = defaultContactFramesIdx[i];
+            }
+        }
+        
+        // Let's check that every submodel has a default contact position
+        for(size_t subModelIdx = 0; subModelIdx < nrOfSubModels; subModelIdx++)
+        {
+            if( subModelIndex2DefaultContact[subModelIdx] == iDynTree::FRAME_INVALID_INDEX )
+            {
+                yError() << "wholeBodyDynamics : openDefaultContactFrames : missing default contact for submodel composed by the links: ";
+                const iDynTree::Traversal & subModelTraversal = estimator.submodels().getTraversal(subModelIdx);
+                for(iDynTree::TraversalIndex i = 0; i < (iDynTree::TraversalIndex) subModelTraversal.getNrOfVisitedLinks(); i++)
+                {
+                    iDynTree::LinkIndex linkIdx = subModelTraversal.getLink(i)->getIndex();
+                    yError() << "wholeBodyDynamics : openDefaultContactFrames :" << estimator.model().getLinkName(linkIdx);
+                }
+
+                return false;
+            }
+        }
+    }
+
+    //A parameter overrideContactFrames exists: ignoring defaultContactFrames and considering defaultContactFrames
+    else
+    {
+        //Check if the parameters `propcontactWrenchType`, `contactWrenchDirection` and `contactWrenchPosition` exist in the configuration file
+        if(propContactWrenchType==0 || propContactWrenchDirection==0 || propContactWrenchPosition==0)
+        {
+            yError() << "wholeBodyDynamics : missing necessary parameters for the overrideContactFrames";
+            return false;
+        }
+        else
+        {
+            //check full size of the lists `contactWrenchType`, `contactWrenchDirection` and `contactWrenchPosition` to verify it's consistent with  number of frames in `overrideContactFrames`
+            
+            
+        }
+        
+        overrideContactFrames.resize(propOverrideContactFrames->size());
+        for(int ax=0; ax < propOverrideContactFrames->size(); ax++)
+        {
+            overrideContactFrames[ax] = propOverrideContactFrames->get(ax).asString().c_str();
+        }
+
+        // We build the overrideContactFramesIdx vector
+        std::vector<iDynTree::FrameIndex> overrideContactFramesIdx;
+        overrideContactFramesIdx.clear();
+        for(size_t i=0; i < overrideContactFrames.size(); i++)
+        {
+            iDynTree::FrameIndex idx = estimator.model().getFrameIndex(overrideContactFrames[i]);
+
+            if( idx == iDynTree::FRAME_INVALID_INDEX )
+            {
+                yWarning() << "Frame " << overrideContactFrames[i] << " not found in the model, discarding it";
+            }
+            else
+            {
+                overrideContactFramesIdx.push_back(idx);
+            }
+        }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// The frames from a single submodel should be no more than 1 if the type is FULL_WRENCH, no more than 3 if the type is PURE_FORCE, and no more than 6 if the type is PURE_FORCE_WITH_KNOWN_DIRECTION.
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        // For each submodel, we find the first suitable contact frame
+        // This is a n^2 algorithm, but given that is just used in
+        // configuration it should be ok
+        size_t nrOfSubModels = estimator.submodels().getNrOfSubModels();
+
+        // We indicate with FRAME_INVALID_INDEX the fact that we still don't have a override contact for the given submodel
+        subModelIndex2OverrideContact.resize(nrOfSubModels,iDynTree::FRAME_INVALID_INDEX);
+
+        for(size_t i=0; i < overrideContactFramesIdx.size(); i++)
+        {
+            size_t subModelIdx = estimator.submodels().getSubModelOfFrame(estimator.model(),overrideContactFramesIdx[i]);
+
+            // If the subModel of the frame still does not have a override contact, we add it
+            if( subModelIndex2OverrideContact[subModelIdx] == iDynTree::FRAME_INVALID_INDEX )
+            {
+                subModelIndex2OverrideContact[subModelIdx] = overrideContactFramesIdx[i];
+            }
+        }
+        
+        // Let's check that every submodel has an override contact position
+        for(size_t subModelIdx = 0; subModelIdx < nrOfSubModels; subModelIdx++)
+        {
+            if( subModelIndex2OverrideContact[subModelIdx] == iDynTree::FRAME_INVALID_INDEX )
+            {
+                yError() << "wholeBodyDynamics : openOverrideContactFrames : missing override contact for submodel composed by the links: ";
+                const iDynTree::Traversal & subModelTraversal = estimator.submodels().getTraversal(subModelIdx);
+                for(iDynTree::TraversalIndex i = 0; i < (iDynTree::TraversalIndex) subModelTraversal.getNrOfVisitedLinks(); i++)
+                {
+                    iDynTree::LinkIndex linkIdx = subModelTraversal.getLink(i)->getIndex();
+                    yError() << "wholeBodyDynamics : openOverrideContactFrames :" << estimator.model().getLinkName(linkIdx);
+                }
+
+                return false;
+            }
         }
     }
 
@@ -963,7 +1028,7 @@ bool WholeBodyDynamicsDevice::open(os::Searchable& config)
         return false;
     } 
 
-    ok = this->openDefaultContactFrames(config);
+    ok = this->openContactFrames(config);
     if( !ok ) 
     {
         yError() << "wholeBodyDynamics: Problem in opening default contact frame settings.";
@@ -1462,16 +1527,33 @@ void WholeBodyDynamicsDevice::readContactPoints()
             if (contactsReadFromSkin.empty())
             {
 
-                for(size_t subModel = 0; subModel < nrOfSubModels; subModel++)
+                if(!overrideContactFramesSelected)
                 {
-                    bool ok = measuredContactLocations.addNewContactInFrame(estimator.model(),
-                                                                            subModelIndex2DefaultContact[subModel], //frameIndex in iDynTree
-                                                                            iDynTree::UnknownWrenchContact(iDynTree::FULL_WRENCH,iDynTree::Position::Zero()));
-                    if( !ok )
+                    for(size_t subModel = 0; subModel < nrOfSubModels; subModel++)
                     {
-                        yWarning() << "wholeBodyDynamics: Failing in adding default contact for submodel " << subModel;
+                        bool ok = measuredContactLocations.addNewContactInFrame(estimator.model(),
+                                                                                subModelIndex2DefaultContact[subModel], //frameIndex in iDynTree
+                                                                                iDynTree::UnknownWrenchContact(iDynTree::FULL_WRENCH,iDynTree::Position::Zero()));
+                        if( !ok )
+                        {
+                            yWarning() << "wholeBodyDynamics: Failing in adding default contact for submodel " << subModel;
+                        }
                     }
                 }
+                else
+                {
+                    for(size_t subModel = 0; subModel < nrOfSubModels; subModel++)
+                    {
+                        bool ok = measuredContactLocations.addNewContactInFrame(estimator.model(),
+                                                                                subModelIndex2OverrideContact[subModel], //frameIndex in iDynTree
+                                                                                iDynTree::UnknownWrenchContact(iDynTree::FULL_WRENCH,iDynTree::Position::Zero()));
+                        if( !ok )
+                        {
+                            yWarning() << "wholeBodyDynamics: Failing in adding override contact for submodel " << subModel;
+                        }
+                    }
+                }
+
                 return;
             }
 
@@ -1512,16 +1594,33 @@ void WholeBodyDynamicsDevice::readContactPoints()
         //This logic only gives the location of the contacts but it does not store any value of pressure or wrench in the contact,
         if (contactsReadFromSkin.empty())
         {
-            for(size_t subModel = 0; subModel < nrOfSubModels; subModel++)
+            if(!overrideContactFramesSelected)
             {
-                bool ok = measuredContactLocations.addNewContactInFrame(estimator.model(),
-                                                                        subModelIndex2DefaultContact[subModel], //frameIndex in iDynTree
-                                                                        iDynTree::UnknownWrenchContact(iDynTree::FULL_WRENCH,iDynTree::Position::Zero()));
-                if( !ok )
+                for(size_t subModel = 0; subModel < nrOfSubModels; subModel++)
                 {
-                    yWarning() << "wholeBodyDynamics: Failing in adding default contact for submodel " << subModel;
+                    bool ok = measuredContactLocations.addNewContactInFrame(estimator.model(),
+                                                                            subModelIndex2DefaultContact[subModel], //frameIndex in iDynTree
+                                                                            iDynTree::UnknownWrenchContact(iDynTree::FULL_WRENCH,iDynTree::Position::Zero()));
+                    if( !ok )
+                    {
+                        yWarning() << "wholeBodyDynamics: Failing in adding default contact for submodel " << subModel;
+                    }
                 }
             }
+            else
+            {
+                for(size_t subModel = 0; subModel < nrOfSubModels; subModel++)
+                {
+                    bool ok = measuredContactLocations.addNewContactInFrame(estimator.model(),
+                                                                            subModelIndex2OverrideContact[subModel], //frameIndex in iDynTree
+                                                                            iDynTree::UnknownWrenchContact(iDynTree::FULL_WRENCH,iDynTree::Position::Zero()));
+                    if( !ok )
+                    {
+                        yWarning() << "wholeBodyDynamics: Failing in adding override contact for submodel " << subModel;
+                    }
+                }
+            }
+
             return;
         }
 
@@ -1560,22 +1659,45 @@ void WholeBodyDynamicsDevice::readContactPoints()
         }
     }
 
-    for(size_t subModel = 0; subModel < nrOfSubModels; subModel++)
+    if(!overrideContactFramesSelected)
     {
-        if( contacts_for_given_subModel[subModel] == 0 )
+        for(size_t subModel = 0; subModel < nrOfSubModels; subModel++)
         {
-            bool ok = measuredContactLocations.addNewContactInFrame(estimator.model(),
-                                                                    subModelIndex2DefaultContact[subModel], //frameIndex in iDynTree
-                                                                    iDynTree::UnknownWrenchContact(iDynTree::FULL_WRENCH,iDynTree::Position::Zero()));
-            if( !ok )
+            if( contacts_for_given_subModel[subModel] == 0 )
             {
-                yWarning() << "wholeBodyDynamics: Failing in adding default contact for submodel " << subModel;
+                bool ok = measuredContactLocations.addNewContactInFrame(estimator.model(),
+                                                                        subModelIndex2DefaultContact[subModel], //frameIndex in iDynTree
+                                                                        iDynTree::UnknownWrenchContact(iDynTree::FULL_WRENCH,iDynTree::Position::Zero()));
+                if( !ok )
+                {
+                    yWarning() << "wholeBodyDynamics: Failing in adding default contact for submodel " << subModel;
+                }
             }
+            /*else
+            {
+                yDebug() << "wholeBodyDynamics: number of contacts in submodel "<<subModel<<" = "<<contacts_for_given_subModel[subModel];
+            }*/
         }
-        /*else
+    }
+    else
+    {
+        for(size_t subModel = 0; subModel < nrOfSubModels; subModel++)
         {
-             yDebug() << "wholeBodyDynamics: number of contacts in submodel "<<subModel<<" = "<<contacts_for_given_subModel[subModel];
-        }*/
+            if( contacts_for_given_subModel[subModel] == 0 )
+            {
+                bool ok = measuredContactLocations.addNewContactInFrame(estimator.model(),
+                                                                        subModelIndex2OverrideContact[subModel], //frameIndex in iDynTree
+                                                                        iDynTree::UnknownWrenchContact(iDynTree::FULL_WRENCH,iDynTree::Position::Zero()));
+                if( !ok )
+                {
+                    yWarning() << "wholeBodyDynamics: Failing in adding override contact for submodel " << subModel;
+                }
+            }
+            /*else
+            {
+                yDebug() << "wholeBodyDynamics: number of contacts in submodel "<<subModel<<" = "<<contacts_for_given_subModel[subModel];
+            }*/
+        }
     }
 
     return;

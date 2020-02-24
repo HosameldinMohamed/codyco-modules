@@ -28,7 +28,8 @@ if(ENABLE_codycomod_wholebodydynamics)
 
     yarp_add_plugin(wholeBodyDynamicsDevice WholeBodyDynamicsDevice.h WholeBodyDynamicsDevice.cpp
                                             SixAxisForceTorqueMeasureHelpers.h SixAxisForceTorqueMeasureHelpers.cpp
-                                            GravityCompensationHelpers.h GravityCompensationHelpers.cpp)
+                                            GravityCompensationHelpers.h GravityCompensationHelpers.cpp
+                                            knownExternalWrench.h knownExternalWrench.cpp)
 
     target_link_libraries(wholeBodyDynamicsDevice   wholeBodyDynamicsSettings
                                                     wholeBodyDynamics_IDLServer
