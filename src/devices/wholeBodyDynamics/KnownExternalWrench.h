@@ -1,5 +1,5 @@
-#ifndef KNOWNEXTERNALWRENCH_H_INCLUDED
-#define KNOWNEXTERNALWRENCH_H_INCLUDED
+#ifndef KNOWNEXTERNALWRENCH_H
+#define KNOWNEXTERNALWRENCH_H
 
 #include <array>
 #include <vector>
@@ -26,26 +26,26 @@ namespace wholeBodyDynamics
  * secondary calibration matrix, that is tipically set to the identity.
  *
  */
-class knownExternalWrench
+class KnownExternalWrench
 {
 private:
     std::string frameName;
     std::string type;
     std::vector<double> position;
     std::vector<double> direction;
-    
+    uint8_t noOfVariables;
 
 public:
     /**
      * Default constructor: the secondaryCalibrationMatrix is
      * set to the identity, while the offset is set to 0.
      */
-    knownExternalWrench(std::string parsedframeName, std::string parsedType, std::vector<double> parsedPosition, std::vector<double> parsedDirection);
+    KnownExternalWrench(std::string parsedframeName, std::string parsedType, std::vector<double> parsedPosition, std::vector<double> parsedDirection);
 
     /**
      * Process the input F/T by only applyng the calibration matrix.
      */
-    bool isValid(knownExternalWrench);
+    bool isValid(KnownExternalWrench);
 
     /**
      * Process the input F/T by only applyng the calibration matrix.
@@ -80,4 +80,4 @@ public:
 }
 
 
-#endif // KNOWNEXTERNALWRENCH_H_INCLUDED
+#endif // KNOWNEXTERNALWRENCH_H

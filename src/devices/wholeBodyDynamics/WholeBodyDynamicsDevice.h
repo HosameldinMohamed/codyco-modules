@@ -30,8 +30,10 @@
 #include <wholeBodyDynamics_IDLServer.h>
 #include "SixAxisForceTorqueMeasureHelpers.h"
 #include "GravityCompensationHelpers.h"
+#include "KnownExternalWrench.h"
 
 #include <vector>
+#include <array>
 
 
 namespace yarp {
@@ -710,6 +712,9 @@ private:
      //std::string selectedContactFrames{"default"};
      std::vector<std::string> defaultContactFrames;
      std::vector<std::string> overrideContactFrames;
+     std::vector<std::string> contactWrenchType;
+     std::vector<std::vector<int>> contactWrenchDirection;
+     std::vector<std::vector<int>> contactWrenchPosition;
      std::vector<iDynTree::FrameIndex> subModelIndex2DefaultContact;
      std::vector<iDynTree::FrameIndex> subModelIndex2OverrideContact;
      bool overrideContactFramesSelected{false};

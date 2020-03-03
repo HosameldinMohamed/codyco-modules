@@ -1,17 +1,30 @@
-#include "knownExternalWrench.h"
+#include "KnownExternalWrench.h"
 
 namespace wholeBodyDynamics
 {
 
-knownExternalWrench::knownExternalWrench(std::string parsedframeName, std::string parsedType, std::vector<double> parsedPosition, std::vector<double> parsedDirection)
+KnownExternalWrench::knownExternalWrench(std::string parsedframeName, std::string parsedType, std::vector<double> parsedPosition, std::vector<double> parsedDirection)
 {
     frameName = parsedframeName;
     type = parsedType;
     position = parsedPosition;
     direction = parsedDirection;
+    
+    if(type=="full")
+    {
+        noOfVariables = 6;
+    }
+    else if(type=="pure")
+    {
+        noOfVariables = 3;
+    }
+    else if(type=="pureKnown")
+    {
+        noOfVariables = 1;
+    }
 }
 
-bool knownExternalWrench::isValid(wholeBodyDynamics::knownExternalWrench _knownExternalWrench)
+bool KnownExternalWrench::isValid(wholeBodyDynamics::KnownExternalWrench _knownExternalWrench)
 {
     // For each frame in the paramater overrideContactFrames, there is one string value in the paramater contactWrenchType (one of the 3 types mentioned above), and 3 real numbers in the paramater contactWrenchDirection
     if(_knownExternalWrench.isTypeValid() && _knownExternalWrench.isPositionValid() && _knownExternalWrench.isDirectionValid())
@@ -24,7 +37,7 @@ bool knownExternalWrench::isValid(wholeBodyDynamics::knownExternalWrench _knownE
     }
 }
 
-bool knownExternalWrench::isTypeValid()
+bool KnownExternalWrench::isTypeValid()
 {
     //Check is type is either:
     //full = FULL_WRENCH
@@ -40,7 +53,7 @@ bool knownExternalWrench::isTypeValid()
     }
 }
 
-bool knownExternalWrench::isPositionValid()
+bool KnownExternalWrench::isPositionValid()
 {
     //Make sure that the parsed postion vector is of 3 elements
     if(position.size() != 3)
@@ -53,7 +66,7 @@ bool knownExternalWrench::isPositionValid()
     }
 }
 
-bool knownExternalWrench::isDirectionValid()
+bool KnownExternalWrench::isDirectionValid()
 {
     //Make sure that the parsed postion vector is of 3 elements
     if(direction.size() != 3)
@@ -66,7 +79,7 @@ bool knownExternalWrench::isDirectionValid()
     }
 }
 
-iDynTree::UnknownWrenchContactType knownExternalWrench::asiDynTreeType()
+iDynTree::UnknownWrenchContactType KnownExternalWrench::asiDynTreeType()
 {
     if(type=="full")
     {
@@ -82,12 +95,12 @@ iDynTree::UnknownWrenchContactType knownExternalWrench::asiDynTreeType()
     }
 }
 
-iDynTree::Position knownExternalWrench::asiDynTreePosition()
+iDynTree::Position KnownExternalWrench::asiDynTreePosition()
 {
     return iDynTree::Position(position[0], position[1],position[3]);
 }
 
-iDynTree::Direction knownExternalWrench::asiDynTreeDirection()
+iDynTree::Direction KnownExternalWrench::asiDynTreeDirection()
 {
     return iDynTree::Direction(direction[0], direction[1], direction[2]);
 }
