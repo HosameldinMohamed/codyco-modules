@@ -713,8 +713,8 @@ private:
      std::vector<std::string> defaultContactFrames;
      std::vector<std::string> overrideContactFrames;
      std::vector<std::string> contactWrenchType;
-     std::vector<std::vector<int>> contactWrenchDirection;
-     std::vector<std::vector<int>> contactWrenchPosition;
+     std::vector<std::vector<double>> contactWrenchDirection;
+     std::vector<std::vector<double>> contactWrenchPosition;
      std::vector<iDynTree::FrameIndex> subModelIndex2DefaultContact;
      std::vector<iDynTree::FrameIndex> subModelIndex2OverrideContact;
      bool overrideContactFramesSelected{false};

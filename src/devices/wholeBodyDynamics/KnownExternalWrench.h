@@ -40,6 +40,12 @@ public:
      * Default constructor: the secondaryCalibrationMatrix is
      * set to the identity, while the offset is set to 0.
      */
+    KnownExternalWrench();
+
+    /**
+     *  Copy constructor
+     * TODO
+     */
     KnownExternalWrench(std::string parsedframeName, std::string parsedType, std::vector<double> parsedPosition, std::vector<double> parsedDirection);
 
     /**
@@ -76,6 +82,11 @@ public:
      * Process the input F/T by only applyng the calibration matrix.
      */
     iDynTree::Direction asiDynTreeDirection();
+    
+    /**
+     * Print the contents of an instance in the console.
+     */
+    void display();
 };
 }
 

@@ -3,7 +3,7 @@
 namespace wholeBodyDynamics
 {
 
-KnownExternalWrench::knownExternalWrench(std::string parsedframeName, std::string parsedType, std::vector<double> parsedPosition, std::vector<double> parsedDirection)
+KnownExternalWrench::KnownExternalWrench(std::string parsedframeName, std::string parsedType, std::vector<double> parsedPosition, std::vector<double> parsedDirection)
 {
     frameName = parsedframeName;
     type = parsedType;
@@ -105,5 +105,12 @@ iDynTree::Direction KnownExternalWrench::asiDynTreeDirection()
     return iDynTree::Direction(direction[0], direction[1], direction[2]);
 }
 
+void KnownExternalWrench::display()
+{
+    std::cout << "[KnownExternalWrench] Frame name: " << frameName << std::endl;
+    std::cout << "                                                 Type: " << type << std::endl;
+    std::cout << "                                                 position: " << position[0] << ", " << position[1] << ", " << position[2] << std::endl;
+    std::cout << "                                                 position: " << direction[0] << ", " << direction[1] << ", " << direction[2] << std::endl;
+}
 
 }

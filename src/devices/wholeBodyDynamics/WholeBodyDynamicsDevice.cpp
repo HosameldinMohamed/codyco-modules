@@ -396,34 +396,77 @@ bool WholeBodyDynamicsDevice::openContactFrames(os::Searchable& config)
     //A parameter overrideContactFrames exists: ignoring defaultContactFrames and considering defaultContactFrames
     else
     {
+        overrideContactFrames.resize(propOverrideContactFrames->size());    
+        for(int ax=0; ax < propOverrideContactFrames->size(); ax++)
+        {
+            overrideContactFrames[ax] = propOverrideContactFrames->get(ax).asString().c_str();
+        }
+        
         //Check if the parameters `propcontactWrenchType`, `contactWrenchDirection` and `contactWrenchPosition` exist in the configuration file
         if(propContactWrenchType==0 || propContactWrenchDirection==0 || propContactWrenchPosition==0)
         {
-            yError() << "wholeBodyDynamics : missing necessary parameters for the overrideContactFrames";
+            yError() << "wholeBodyDynamics : missing necessary parameters for the overrideContactFrames.";
             return false;
         }
         else
         {
-            //check full size of the lists `contactWrenchType`, `contactWrenchDirection` and `contactWrenchPosition` to verify it's consistent with  number of frames in `overrideContactFrames`
-            
-            
-        }
-        
-        overrideContactFrames.resize(propOverrideContactFrames->size());
-        for(int ax=0; ax < propOverrideContactFrames->size(); ax++)
-        {
-            //TODO Add a check of the sizes of propContactWrenchType, contactWrenchDirection and propContactWrenchPosition before this step
-            
-            overrideContactFrames[ax] = propOverrideContactFrames->get(ax).asString().c_str();
-            contactWrenchType[ax] = propContactWrenchType->get(ax).asString().c_str();
-            
-            //The position and the type parameters should have 3 numbers for each contact frame
-            for(int i=0; i<3; i++)
+            //fill the other variables from the prop objects
+            contactWrenchType.resize(propContactWrenchType->size());    
+            for(int ax=0; ax < propContactWrenchType->size(); ax++)
             {
-                contactWrenchDirection[ax][i] = propContactWrenchDirection->get(ax*i).asInt();
-                contactWrenchPosition[ax][i] = propContactWrenchPosition->get(ax*i).asInt();
+                contactWrenchType[ax] = propContactWrenchType->get(ax).asString().c_str();
             }
+
+            //TODO add a check that the size of prop is a mulitple of 3
+            contactWrenchDirection.resize(propContactWrenchDirection->size()/3);
+            for(int ax=0; ax < contactWrenchDirection.size(); ax++)
+            {
+                contactWrenchDirection[ax].resize(3);
+                for(int ay=0; ay < 3; ay++)
+                {
+                    int index = 3*ax+ay;
+                    contactWrenchDirection[ax][ay] = propContactWrenchDirection->get(index).asDouble();
+                }
+            }
+
+            //TODO add a check that the size of prop is a mulitple of 3
+            contactWrenchPosition.resize(propContactWrenchPosition->size()/3);
+            for(int ax=0; ax < contactWrenchPosition.size(); ax++)
+            {
+                contactWrenchPosition[ax].resize(3);
+                for(int ay=0; ay < 3; ay++)
+                {
+                    int index = 3*ax+ay;
+                    contactWrenchPosition[ax][ay] = propContactWrenchPosition->get(index).asDouble();
+                }
+            }
+            std::cout << "HERE??" << std::endl;
+
+            std::cout << "overrideContactFrames size= " << overrideContactFrames.size() << std::endl;
+            std::cout << "contactWrenchType size= " << contactWrenchType.size() << std::endl;
+            std::cout << "contactWrenchDirection size= " << contactWrenchDirection.size() << std::endl;
+            std::cout << "contactWrenchPosition size= " << contactWrenchPosition.size() << std::endl;
+            //check full size of the lists `contactWrenchType`, `contactWrenchDirection` and `contactWrenchPosition` to verify it's consistent with  number of frames in `overrideContactFrames`
+            if(contactWrenchType.size() == overrideContactFrames.size() && contactWrenchDirection.size() == overrideContactFrames.size() && contactWrenchPosition.size() == overrideContactFrames.size())
+            {
+                std::cout << "HERE inside??" << std::endl;
+            }
+            else
+            {
+                yError() << "wholeBodyDynamics : parameters 'overrideContactFrames', 'contactWrenchType', 'contactWrenchDirection' and 'contactWrenchPosition' sizes are not consistent.";
+                return false;
+            }
+        }
+
+        std::cout << "we reached here " << std::endl;
+        //create classes "KnownExternalWrench"
+        wholeBodyDynamics::KnownExternalWrench wrench[propOverrideContactFrames->size()];
+
+        for(int ax=0; ax < propOverrideContactFrames->size(); ax++)
+        {            
+            wrench[ax] = wholeBodyDynamics::KnownExternalWrench(overrideContactFrames[ax], contactWrenchType[ax], contactWrenchDirection[ax], contactWrenchPosition[ax]);
             
+            //wrench[ax].display();
         }
 
         // We build the overrideContactFramesIdx vector
@@ -441,12 +484,6 @@ bool WholeBodyDynamicsDevice::openContactFrames(os::Searchable& config)
             {
                 overrideContactFramesIdx.push_back(idx);
             }
-        }
-
-        //build the class KnownExternalWrench
-        for(size_t i=0; i < overrideContactFramesIdx.size(); i++)
-        {
-            wholeBodyDynamics::KnownExternalWrench();
         }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -470,11 +507,12 @@ bool WholeBodyDynamicsDevice::openContactFrames(os::Searchable& config)
             {
                 subModelIndex2OverrideContact[subModelIdx] = overrideContactFramesIdx[i];
             }
-            
+            /*
             else if()
             {
                 
             }
+            */
         }
 
         // Let's check that every submodel has an override contact position
@@ -1550,6 +1588,8 @@ void WholeBodyDynamicsDevice::readContactPoints()
             {
                 if(!overrideContactFramesSelected)
                 {
+                    for(size_t subModel = 0; subModel < nrOfSubModels; subModel++)
+                        {
                         bool ok = measuredContactLocations.addNewContactInFrame(estimator.model(),
                                                                                 subModelIndex2DefaultContact[subModel], //frameIndex in iDynTree
                                                                                 iDynTree::UnknownWrenchContact(iDynTree::FULL_WRENCH,iDynTree::Position::Zero()));
@@ -1564,7 +1604,7 @@ void WholeBodyDynamicsDevice::readContactPoints()
                     for(size_t subModel = 0; subModel < nrOfSubModels; subModel++)
                     {
                         for(size_t subModel = 0; subModel < nrOfSubModels; subModel++)
-                    {
+                        {
                         //iterate for each added contact frame
                         for(size_t subModel = 0; subModel < nrOfSubModels; subModel++)
                         {
@@ -1577,6 +1617,7 @@ void WholeBodyDynamicsDevice::readContactPoints()
                         if( !ok )
                         {
                             yWarning() << "wholeBodyDynamics: Failing in adding override contact for submodel " << subModel;
+                        }
                         }
                     }
                 }
