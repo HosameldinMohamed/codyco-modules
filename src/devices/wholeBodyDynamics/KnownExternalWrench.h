@@ -33,9 +33,10 @@ private:
     std::string type;
     std::vector<double> position;
     std::vector<double> direction;
-    uint8_t noOfVariables;
 
 public:
+    uint8_t noOfVariables;
+
     /**
      * Default constructor: the secondaryCalibrationMatrix is
      * set to the identity, while the offset is set to 0.

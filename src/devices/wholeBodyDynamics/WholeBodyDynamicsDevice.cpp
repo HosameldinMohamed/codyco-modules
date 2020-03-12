@@ -466,7 +466,7 @@ bool WholeBodyDynamicsDevice::openContactFrames(os::Searchable& config)
         {            
             wrench[ax] = wholeBodyDynamics::KnownExternalWrench(overrideContactFrames[ax], contactWrenchType[ax], contactWrenchDirection[ax], contactWrenchPosition[ax]);
             
-            //wrench[ax].display();
+            wrench[ax].display();
         }
 
         // We build the overrideContactFramesIdx vector
@@ -502,17 +502,18 @@ bool WholeBodyDynamicsDevice::openContactFrames(os::Searchable& config)
         {
             size_t subModelIdx = estimator.submodels().getSubModelOfFrame(estimator.model(),overrideContactFramesIdx[i]);
 
+            subModelVarSize.resize(estimator.submodels().getNrOfSubModels());
             // If the subModel of the frame still does not have an override contact, we add it
             if( subModelIndex2OverrideContact[subModelIdx] == iDynTree::FRAME_INVALID_INDEX )
             {
                 subModelIndex2OverrideContact[subModelIdx] = overrideContactFramesIdx[i];
+                subModelVarSize[subModelIdx] += wrench[i].noOfVariables;
+                std::cout << "Number of unkowns= " << subModelVarSize[subModelIdx] << std::endl;
             }
-            /*
-            else if()
+            else if(false)
             {
                 
             }
-            */
         }
 
         // Let's check that every submodel has an override contact position

@@ -3,6 +3,10 @@
 namespace wholeBodyDynamics
 {
 
+KnownExternalWrench::KnownExternalWrench::KnownExternalWrench()
+{
+}
+
 KnownExternalWrench::KnownExternalWrench(std::string parsedframeName, std::string parsedType, std::vector<double> parsedPosition, std::vector<double> parsedDirection)
 {
     frameName = parsedframeName;

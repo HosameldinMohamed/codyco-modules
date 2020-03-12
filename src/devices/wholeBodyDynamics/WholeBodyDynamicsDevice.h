@@ -718,6 +718,7 @@ private:
      std::vector<iDynTree::FrameIndex> subModelIndex2DefaultContact;
      std::vector<iDynTree::FrameIndex> subModelIndex2OverrideContact;
      bool overrideContactFramesSelected{false};
+     std::vector<int> subModelVarSize;
 
      /**
       * Port used to read the location of external contacts
