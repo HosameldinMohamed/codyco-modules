@@ -495,31 +495,43 @@ bool WholeBodyDynamicsDevice::openContactFrames(os::Searchable& config)
         // configuration it should be ok
         size_t nrOfSubModels = estimator.submodels().getNrOfSubModels();
 
-        // We indicate with FRAME_INVALID_INDEX the fact that we still don't have a override contact for the given submodel
-        subModelIndex2OverrideContact.resize(nrOfSubModels,iDynTree::FRAME_INVALID_INDEX);
+        //// We indicate with FRAME_INVALID_INDEX the fact that we still don't have a override contact for the given submodel
+        subModelIndex2OverrideContact.resize(overrideContactFramesIdx.size());
+
+        subModelVarSize.resize(nrOfSubModels);
 
         for(size_t i=0; i < overrideContactFramesIdx.size(); i++)
         {
+            // We indicate with FRAME_INVALID_INDEX the fact that we still don't have a override contact for the given submodel
+            subModelIndex2OverrideContact[i].resize(nrOfSubModels,iDynTree::FRAME_INVALID_INDEX);
+            std::cout << "Resize done? " << std::endl;
+
             size_t subModelIdx = estimator.submodels().getSubModelOfFrame(estimator.model(),overrideContactFramesIdx[i]);
 
-            subModelVarSize.resize(estimator.submodels().getNrOfSubModels());
-            // If the subModel of the frame still does not have an override contact, we add it
-            if( subModelIndex2OverrideContact[subModelIdx] == iDynTree::FRAME_INVALID_INDEX )
+            //check if adding the current contact to this subModel will increase the no of variable to more than 6
+            if(subModelVarSize[subModelIdx]+wrench[i].noOfVariables > 6)
             {
-                subModelIndex2OverrideContact[subModelIdx] = overrideContactFramesIdx[i];
+                //subModelIndex2OverrideContact[subModelIdx].push_back(iDynTree::FRAME_INVALID_INDEX);
+                yWarning() << "subModel no " << subModelIdx << " has the maximum number of variables (6). The frame " << overrideContactFrames[i] << " will not be added to it.";
+            }
+            else
+            {
+                //add the contact frame
+                //subModelIndex2OverrideContact[subModelIdx].push_back(overrideContactFramesIdx[i]);
+                subModelIndex2OverrideContact[i][subModelIdx] = overrideContactFramesIdx[i];
                 subModelVarSize[subModelIdx] += wrench[i].noOfVariables;
-                std::cout << "Number of unkowns= " << subModelVarSize[subModelIdx] << std::endl;
+                yInfo() << "Adding frame " << overrideContactFrames[i] << " (idx= " << overrideContactFramesIdx[i] << ") for subModel no " << subModelIdx << " Number of unkowns has become= " << subModelVarSize[subModelIdx];
             }
-            else if(false)
-            {
-                
-            }
+            // We indicate with FRAME_INVALID_INDEX the fact that we still don't have a override contact for the given submodel
+            //subModelIndex2OverrideContact[i].resize(nrOfSubModels,iDynTree::FRAME_INVALID_INDEX);
         }
+        
+        std::cout << "[HOSAM] The frames for each submodel " << subModelIndex2OverrideContact << std::endl;
 
         // Let's check that every submodel has an override contact position
         for(size_t subModelIdx = 0; subModelIdx < nrOfSubModels; subModelIdx++)
         {
-            if( subModelIndex2OverrideContact[subModelIdx] == iDynTree::FRAME_INVALID_INDEX )
+            if(subModelIndex2OverrideContact[subModelIdx].empty() )
             {
                 yError() << "wholeBodyDynamics : openOverrideContactFrames : missing override contact for submodel composed by the links: ";
                 const iDynTree::Traversal & subModelTraversal = estimator.submodels().getTraversal(subModelIdx);
@@ -1577,6 +1589,14 @@ void WholeBodyDynamicsDevice::readContactPoints()
     int numberOfContacts=0;
     size_t nrOfSubModels = estimator.submodels().getNrOfSubModels();
 
+    //construct the wrenches from the global variables
+    wholeBodyDynamics::KnownExternalWrench wrench[overrideContactFrames.size()];
+
+    for(int ax=0; ax < overrideContactFrames.size(); ax++)
+    {
+        wrench[ax] = wholeBodyDynamics::KnownExternalWrench(overrideContactFrames[ax], contactWrenchType[ax], contactWrenchDirection[ax], contactWrenchPosition[ax]);
+    }
+
     // read skin
     iCub::skinDynLib::skinContactList *scl =this->portContactsInput.read(false); //scl=null could also mean no new message
     if(scl)
@@ -1604,21 +1624,19 @@ void WholeBodyDynamicsDevice::readContactPoints()
                 {
                     for(size_t subModel = 0; subModel < nrOfSubModels; subModel++)
                     {
-                        for(size_t subModel = 0; subModel < nrOfSubModels; subModel++)
-                        {
                         //iterate for each added contact frame
-                        for(size_t subModel = 0; subModel < nrOfSubModels; subModel++)
+                        for(size_t ovFrame = 0; ovFrame < overrideContactFrames.size(); ovFrame++)
                         {
-                            
-                        }
-                        
-                        bool ok = measuredContactLocations.addNewContactInFrame(estimator.model(),
-                                                                                subModelIndex2OverrideContact[subModel], //frameIndex in iDynTree
-                                                                                iDynTree::UnknownWrenchContact(iDynTree::FULL_WRENCH,iDynTree::Position::Zero()));
-                        if( !ok )
-                        {
-                            yWarning() << "wholeBodyDynamics: Failing in adding override contact for submodel " << subModel;
-                        }
+                            if(subModelIndex2OverrideContact[ovFrame][subModel] != iDynTree::FRAME_INVALID_INDEX)
+                            {
+                                bool ok = measuredContactLocations.addNewContactInFrame(estimator.model(),
+                                                                                        subModelIndex2OverrideContact[ovFrame][subModel], //frameIndex in iDynTree
+                                                                                        iDynTree::UnknownWrenchContact(wrench[ovFrame].asiDynTreeType(),wrench[ovFrame].asiDynTreePosition()));
+                                if( !ok )
+                                {
+                                    yWarning() << "wholeBodyDynamics: Failing in adding override contact for submodel " << subModel;
+                                }
+                            }
                         }
                     }
                 }
@@ -1680,12 +1698,19 @@ void WholeBodyDynamicsDevice::readContactPoints()
             {
                 for(size_t subModel = 0; subModel < nrOfSubModels; subModel++)
                 {
-                    bool ok = measuredContactLocations.addNewContactInFrame(estimator.model(),
-                                                                            subModelIndex2OverrideContact[subModel], //frameIndex in iDynTree
-                                                                            iDynTree::UnknownWrenchContact(iDynTree::FULL_WRENCH,iDynTree::Position::Zero()));
-                    if( !ok )
+                    //iterate for each added contact frame
+                    for(size_t ovFrame = 0; ovFrame < overrideContactFrames.size(); ovFrame++)
                     {
-                        yWarning() << "wholeBodyDynamics: Failing in adding override contact for submodel " << subModel;
+                        if(subModelIndex2OverrideContact[ovFrame][subModel] != iDynTree::FRAME_INVALID_INDEX)
+                        {
+                            bool ok = measuredContactLocations.addNewContactInFrame(estimator.model(),
+                                                                                    subModelIndex2OverrideContact[ovFrame][subModel], //frameIndex in iDynTree
+                                                                                    iDynTree::UnknownWrenchContact(wrench[ovFrame].asiDynTreeType(),wrench[ovFrame].asiDynTreePosition()));
+                            if( !ok )
+                            {
+                                yWarning() << "wholeBodyDynamics: Failing in adding override contact for submodel " << subModel;
+                            }
+                        }
                     }
                 }
             }
@@ -1754,12 +1779,19 @@ void WholeBodyDynamicsDevice::readContactPoints()
         {
             if( contacts_for_given_subModel[subModel] == 0 )
             {
-                bool ok = measuredContactLocations.addNewContactInFrame(estimator.model(),
-                                                                        subModelIndex2OverrideContact[subModel], //frameIndex in iDynTree
-                                                                        iDynTree::UnknownWrenchContact(iDynTree::FULL_WRENCH,iDynTree::Position::Zero()));
-                if( !ok )
+                //iterate for each added contact frame
+                for(size_t ovFrame = 0; ovFrame < overrideContactFrames.size(); ovFrame++)
                 {
-                    yWarning() << "wholeBodyDynamics: Failing in adding override contact for submodel " << subModel;
+                    if(subModelIndex2OverrideContact[ovFrame][subModel] != iDynTree::FRAME_INVALID_INDEX)
+                    {
+                        bool ok = measuredContactLocations.addNewContactInFrame(estimator.model(),
+                                                                                subModelIndex2OverrideContact[ovFrame][subModel], //frameIndex in iDynTree
+                                                                                iDynTree::UnknownWrenchContact(wrench[ovFrame].asiDynTreeType(),wrench[ovFrame].asiDynTreePosition()));
+                        if( !ok )
+                        {
+                            yWarning() << "wholeBodyDynamics: Failing in adding override contact for submodel " << subModel;
+                        }
+                    }
                 }
             }
             /*else
@@ -1769,6 +1801,8 @@ void WholeBodyDynamicsDevice::readContactPoints()
         }
     }
 
+    //print the matrix A
+    
     return;
 }
 
